@@ -232,7 +232,7 @@ Outputs:
     Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/reservations"
 
   UiBucket:
-    Description: "UI用のS3バケット名"
+    Description: "UI S3 Bucket Name"
     Value: !Sub "${AWS::StackName}-ui-bucket-${AWS::AccountId}"
 
   AuroraDSQLCluster:
