@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS reservations;
+
+CREATE TABLE IF NOT EXISTS reservations (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  reserved_date DATE NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

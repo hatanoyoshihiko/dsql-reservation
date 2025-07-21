@@ -1,0 +1,240 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Web宿泊予約システム (Aurora DSQL + psycopg2-binary)
+
+Parameters:
+  DBUser:
+    Type: String
+  DBName:
+    Type: String
+
+Globals:
+  Function:
+    Timeout: 10
+    Runtime: python3.13
+    Layers:
+      - !Ref PythonLayer
+
+Resources:
+  AuroraDSQLCluster:
+  Type: AWS::DSQL::Cluster
+  Properties:
+    DeletionProtectionEnabled: false
+    Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-dsql-${AWS::AccountId}"
+
+  UiBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-ui-bucket-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  UiOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-UiOAC"
+        Description: OAC for UI S3 bucket
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  UiCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "${AWS::StackName} UI CloudFront"
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200 # 北米・欧州・アジア・中東・アフリカ
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: whitelist
+            Locations:
+              - JP
+        Origins:
+          - Id: UiS3Origin
+            DomainName: !Sub "${UiBucket}.s3.${AWS::Region}.amazonaws.com"
+            S3OriginConfig: {} # 必須プレースホルダ（OAC使用時でも必要）
+            OriginAccessControlId: !Ref UiOAC
+        DefaultCacheBehavior:
+          TargetOriginId: UiS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachePolicyId: 413bf010-3a4f-4a8f-bb99-99646eecaa44 # CachingDisabled
+          OriginRequestPolicyId: 088c34b7-9b84-4bcb-b06f-1f6f1397c59b # CORS-S3Origin
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # SimpleCORS
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt CloudFrontPreflightFunction.FunctionARN
+  UiBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref UiBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipalRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${UiBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${UiCloudFrontDistribution}"
+
+  MyApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "${AWS::StackName}-dsql-${AWS::AccountId}"
+      StageName: Prod
+      Cors:
+        AllowMethods:
+          - OPTIONS
+          - GET
+          - POST
+        AllowHeaders:
+          - Content-Type
+          - X-Amz-Date
+          - Authorization
+          - X-Api-Key
+          - X-Amz-Security-Token
+          - Access-Control-Allow-Headers
+          - Access-Control-Allow-Methods
+          - Access-Control-Allow-Origin
+          - X-Api-Gateway-Secret
+        AllowOrigin: "'*'"
+
+  ReserveFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.reserve.lambda_handler
+      CodeUri: src/
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt AuroraDSQLCluster.Identifier
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dsql:GenerateDbConnectAdminAuthToken
+              Resource: "*"
+      Events:
+        PostReservation:
+          Type: Api
+          Properties:
+            Path: /reserve
+            Method: post
+            RestApiId: !Ref MyApi
+        OptionsReservation:
+          Type: Api
+          Properties:
+            Path: /reserve
+            Method: options
+            RestApiId: !Ref MyApi
+  ListReservationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: handlers.list_reservations.lambda_handler
+      CodeUri: src/
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt AuroraDSQLCluster.Identifier
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dsql:GenerateDbConnectAdminAuthToken
+              Resource: "*"
+      Events:
+        GetReservations:
+          Type: Api
+          Properties:
+            Path: /reservations
+            Method: get
+            RestApiId: !Ref MyApi
+        OptionsReservations:
+          Type: Api
+          Properties:
+            Path: /reservations
+            Method: options
+            RestApiId: !Ref MyApi
+
+  CloudFrontPreflightFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub "${AWS::StackName}-Preflight"
+      AutoPublish: true
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          if (request.method === 'OPTIONS') {
+            return {
+              statusCode: 200,
+              statusDescription: 'OK',
+              headers: {
+                'access-control-allow-origin': { value: '*' },
+                'access-control-allow-methods': { value: 'GET, POST, OPTIONS' },
+                'access-control-allow-headers': { value: '*' },
+                'access-control-max-age': { value: '86400' }
+              }
+            };
+          }
+          return request;
+        }
+      FunctionConfig:
+        Comment: "Handle CORS preflight for API from CloudFront"
+        Runtime: cloudfront-js-1.0
+
+  PythonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: python-libs
+      ContentUri: layers/python/
+      CompatibleRuntimes:
+        - python3.13
+    Metadata:
+      BuildMethod: python3.13
+
+Outputs:
+  UiCloudFrontDomain:
+    Description: "CloudFront UI Distribution Domain Name"
+    Value: !GetAtt UiCloudFrontDistribution.DomainName
+
+  ApiUrl:
+    Description: "API Gateway base URL"
+    Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+
+  ReserveFunctionEndpoint:
+    Description: "POST endpoint to make reservation"
+    Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/reserve"
+
+  ListReservationsFunctionEndpoint:
+    Description: "GET endpoint to list reservations"
+    Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/reservations"
+
+  UiBucket:
+    Description: "UI用のS3バケット名"
+    Value: !Sub "${AWS::StackName}-ui-bucket-${AWS::AccountId}"
+
+  AuroraDSQLCluster:
+    Description: "DSQL Cluster ARN"
+    Value: !Sub "${AWS::StackName}-${AWS::AccountId}"
