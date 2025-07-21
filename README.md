@@ -60,14 +60,6 @@ dsql-reservation/
 
 ---
 
-## 🔧 事前準備
-
-1. psycopg2 layerのビルド
-2. SAMの実行
-3. DB用初期テーブルの作成
-
----
-
 ## デプロイ手順（SAM）
 
 ### 1. psycopg2レイヤーの作成
@@ -90,6 +82,25 @@ sam deploy \
   --parameter-overrides \
     DBUser=admin \
     DBName=postgres \
+```
+
+```
+Outputs
+-----------------------------------------------------------------------------------------------------------
+Key                 ApiUrl
+Description         API Gateway base URL
+Value               https://xxx.execute-api.ap-northeast-1.amazonaws.com/Prod/
+
+Key                 ListReservationsFunctionEndpoint
+Description         GET endpoint to list reservations
+Value               https://xxx.execute-api.ap-northeast-1.amazonaws.com/Prod/reservations
+
+Key                 ReserveFunctionEndpoint
+Description         POST endpoint to make reservation
+Value               https://xxx.execute-api.ap-northeast-1.amazonaws.com/Prod/reserve
+
+
+
 ```
 
 ### 3. DB用初期テーブルの作成
