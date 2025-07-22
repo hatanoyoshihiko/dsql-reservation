@@ -9,38 +9,52 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col items-center justify-start p-4">
   <div class="max-w-md w-full bg-white rounded-2xl shadow-lg p-6 mt-4">
-    <h1 class="text-2xl font-bold text-center mb-6">宿泊予約フォーム</h1>
-
+    <h1 class="text-2xl font-bold text-center mb-6">宿泊予約システム</h1>
     <div id="currentTime" class="text-sm text-right text-gray-500 mb-4"></div>
 
-    <!-- Step 1: 名前入力 -->
-    <form id="nameForm" class="step space-y-4">
-      <label class="block">
-        <span class="text-gray-700">お名前</span>
-        <input type="text" id="name" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm" required />
-      </label>
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl transition">次へ</button>
-    </form>
+    <!-- Step 0: 開始ボタン -->
+    <div id="startForm" class="step space-y-4">
+      <button id="startReservation" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-xl">
+        予約を開始します
+      </button>
+    </div>
 
-    <!-- Step 2: 宿泊日入力 -->
+    <!-- Step 1: 宿泊日 -->
     <form id="dateForm" class="step space-y-4 hidden">
       <label class="block">
         <span class="text-gray-700">宿泊日</span>
         <input type="date" id="date" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm" required />
       </label>
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl transition">次へ</button>
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl">次へ</button>
     </form>
 
-    <!-- Step 3: 到着時間入力 -->
+    <!-- Step 2: 到着時間 -->
     <form id="timeForm" class="step space-y-4 hidden">
       <label class="block">
         <span class="text-gray-700">到着時間</span>
         <input type="time" id="time" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm" required />
       </label>
-      <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl transition">予約する</button>
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl">次へ</button>
     </form>
 
-    <!-- Step 4: 完了と一覧 -->
+    <!-- Step 3: 名前 -->
+    <form id="nameForm" class="step space-y-4 hidden">
+      <label class="block">
+        <span class="text-gray-700">お名前</span>
+        <input type="text" id="name" class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm" required />
+      </label>
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl">次へ</button>
+    </form>
+
+    <!-- Step 4: 確認 -->
+    <div id="confirmForm" class="step space-y-4 hidden">
+      <p class="text-center text-gray-700">予約を確定しますか？</p>
+      <button id="confirmReserve" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl">
+        予約する
+      </button>
+    </div>
+
+    <!-- Step 5: 完了画面 -->
     <div id="step4" class="step hidden">
       <h2 class="text-xl font-semibold mt-4 mb-2">予約一覧</h2>
       <table class="min-w-full table-auto border border-gray-300">
@@ -52,12 +66,11 @@
         </thead>
         <tbody id="reservationList" class="text-sm"></tbody>
       </table>
-      <button id="backToStart" class="mt-4 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-xl transition">
+      <button id="backToStart" class="mt-4 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-xl">
         はじめに戻る
       </button>
     </div>
   </div>
-
   <script src="script.js"></script>
 </body>
 </html>

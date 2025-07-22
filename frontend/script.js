@@ -42,8 +42,8 @@ function showStep(stepId) {
   }
 }
 
-// 現在時刻を表示
-function startClock() {
+// 現在時刻を初回のみ表示
+function showCurrentTimeOnce() {
   const currentTimeEl = document.getElementById("currentTime");
   if (!currentTimeEl) return;
 
@@ -55,29 +55,24 @@ function startClock() {
   currentTimeEl.textContent = `現在時刻：${formatted}`;
 }
 
-
 // ページ読み込み後の初期処理
 document.addEventListener("DOMContentLoaded", async () => {
   await loadConfig();
-  startClock();
-  showStep("nameForm");
+  showCurrentTimeOnce();
+  showStep("startForm");
+  loadReservations();
 
-  const nameForm = document.getElementById("nameForm");
+  const startBtn = document.getElementById("startReservation");
   const dateForm = document.getElementById("dateForm");
   const timeForm = document.getElementById("timeForm");
+  const nameForm = document.getElementById("nameForm");
+  const confirmForm = document.getElementById("confirmForm");
+  const reserveBtn = document.getElementById("confirmReserve");
 
-  // 名前フォームの送信
-  nameForm?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const name = document.getElementById("name")?.value.trim();
-    if (!name) {
-      Swal.fire("入力エラー", "名前を入力してください。", "warning");
-      return;
-    }
+  startBtn?.addEventListener("click", () => {
     showStep("dateForm");
   });
 
-  // 宿泊日フォームの送信
   dateForm?.addEventListener("submit", (e) => {
     e.preventDefault();
     const date = document.getElementById("date")?.value;
@@ -88,17 +83,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     showStep("timeForm");
   });
 
-  // 到着時間フォームの送信（予約登録）
-  timeForm?.addEventListener("submit", async (e) => {
+  timeForm?.addEventListener("submit", (e) => {
     e.preventDefault();
-    const name = document.getElementById("name")?.value.trim();
-    const date = document.getElementById("date")?.value;
     const time = document.getElementById("time")?.value;
-
     if (!time) {
       Swal.fire("入力エラー", "到着時間を入力してください。", "warning");
       return;
     }
+    showStep("nameForm");
+  });
+
+  nameForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = document.getElementById("name")?.value.trim();
+    if (!name) {
+      Swal.fire("入力エラー", "名前を入力してください。", "warning");
+      return;
+    }
+    showStep("confirmForm");
+  });
+
+  reserveBtn?.addEventListener("click", async () => {
+    reserveBtn.disabled = true;
+
+    const name = document.getElementById("name")?.value.trim();
+    const date = document.getElementById("date")?.value;
+    const time = document.getElementById("time")?.value;
 
     const body = { name, date, time };
 
@@ -109,28 +119,27 @@ document.addEventListener("DOMContentLoaded", async () => {
         body: JSON.stringify(body),
       });
 
-    if (res.ok) {
-      Swal.fire("成功", "予約が登録されました！", "success");
-      await loadReservations();
-      showStep("step4");
-    } else {
-      const result = await res.json();
-      Swal.fire("エラー", result.error || "予約に失敗しました", "error");
-      showStep("step4"); // ← 失敗時も step4 に遷移して戻るボタンを表示
-    }
+      if (res.ok) {
+        Swal.fire("成功", "予約が登録されました！", "success");
+        await loadReservations();
+        showStep("step4");
+      } else {
+        const result = await res.json();
+        Swal.fire("エラー", result.error || "予約に失敗しました", "error");
+        showStep("step4");
+      }
     } catch (err) {
       console.error(err);
       Swal.fire("通信エラー", "APIとの通信に失敗しました。", "error");
     }
   });
-    // 「はじめに戻る」ボタンの処理
+
   const backBtn = document.getElementById("backToStart");
   backBtn?.addEventListener("click", () => {
-    // 各フォームをリセット
     document.getElementById("nameForm")?.reset();
     document.getElementById("dateForm")?.reset();
     document.getElementById("timeForm")?.reset();
-
-    showStep("nameForm");
+    reserveBtn.disabled = false;
+    showStep("startForm");
   });
 });
