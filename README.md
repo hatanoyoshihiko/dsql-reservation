@@ -19,14 +19,12 @@ graph TD
   User --> CF
   CF --> S3
   CF --> CF-Functions
-  CF-Functions
   S3 --> API
 
   API -->|GET /reservations| LambdaList
   API -->|POST /reserve| LambdaReserve
 
   LambdaReserve --> Layer
-  CF-Functions --> API
   LambdaList --> Layer
   
   Layer --> DSQL
