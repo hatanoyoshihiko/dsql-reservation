@@ -13,7 +13,6 @@ def lambda_handler(event, context):
     print("headers:", event.get("headers"))
     print("method:", event.get("httpMethod"))
 
-    # --- Handle preflight request (CORS OPTIONS) ---
     if event.get("httpMethod") == "OPTIONS":
         return {
             "statusCode": 200,
@@ -41,29 +40,35 @@ def lambda_handler(event, context):
         conn = get_connection()
         cursor = conn.cursor()
 
-        # --- パターン2: ON CONFLICT による重複チェック ---
-        cursor.execute(
-            """
-            INSERT INTO reservations (id, name, reserved_date, created_at)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (reserved_date) DO NOTHING
-            """,
-            (reservation_id, name, date, created_at)
-        )
-        conn.commit()
+        try:
+            cursor.execute("BEGIN")
+            cursor.execute(
+                """
+                INSERT INTO reservations (id, name, reserved_date, created_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (reserved_date) DO NOTHING
+                """,
+                (reservation_id, name, date, created_at)
+            )
 
-        if cursor.rowcount == 0:
+            if cursor.rowcount == 0:
+                conn.rollback()
+                return {
+                    "statusCode": 409,
+                    "headers": CORS_HEADERS,
+                    "body": json.dumps({"error": "その日付はすでに予約されています"})
+                }
+
+            conn.commit()
             return {
-                "statusCode": 409,
+                "statusCode": 200,
                 "headers": CORS_HEADERS,
-                "body": json.dumps({"error": "その日付はすでに予約されています"})
+                "body": json.dumps({"message": "予約が完了しました"})
             }
 
-        return {
-            "statusCode": 200,
-            "headers": CORS_HEADERS,
-            "body": json.dumps({"message": "予約が完了しました"})
-        }
+        except Exception as e:
+            conn.rollback()
+            raise e
 
     except Exception as e:
         return {
@@ -71,3 +76,9 @@ def lambda_handler(event, context):
             "headers": CORS_HEADERS,
             "body": json.dumps({"error": str(e)})
         }
+    finally:
+        try:
+            cursor.close()
+            conn.close()
+        except:
+            pass
