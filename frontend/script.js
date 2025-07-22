@@ -31,7 +31,6 @@ async function loadReservations() {
   }
 }
 
-// ステップ表示制御
 function showStep(stepId) {
   document.querySelectorAll('.step').forEach(el => el.classList.add('hidden'));
   const el = document.getElementById(stepId);
@@ -42,7 +41,6 @@ function showStep(stepId) {
   }
 }
 
-// 現在時刻を初回のみ表示
 function showCurrentTimeOnce() {
   const currentTimeEl = document.getElementById("currentTime");
   if (!currentTimeEl) return;
@@ -55,7 +53,6 @@ function showCurrentTimeOnce() {
   currentTimeEl.textContent = `現在時刻：${formatted}`;
 }
 
-// ページ読み込み後の初期処理
 document.addEventListener("DOMContentLoaded", async () => {
   await loadConfig();
   showCurrentTimeOnce();
@@ -68,6 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const nameForm = document.getElementById("nameForm");
   const confirmForm = document.getElementById("confirmForm");
   const reserveBtn = document.getElementById("confirmReserve");
+  const loadingEl = document.getElementById("loadingMessage");
 
   startBtn?.addEventListener("click", () => {
     showStep("dateForm");
@@ -105,6 +103,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   reserveBtn?.addEventListener("click", async () => {
     reserveBtn.disabled = true;
+    loadingEl.classList.remove("hidden");
 
     const name = document.getElementById("name")?.value.trim();
     const date = document.getElementById("date")?.value;
@@ -126,13 +125,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         const result = await res.json();
         Swal.fire("エラー", result.error || "予約に失敗しました", "error");
-        reserveBtn.disabled = false;
         showStep("step4");
       }
     } catch (err) {
       console.error(err);
       Swal.fire("通信エラー", "APIとの通信に失敗しました。", "error");
-      reserveBtn.disabled = false;
+    } finally {
+      loadingEl.classList.add("hidden");
     }
   });
 
