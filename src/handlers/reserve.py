@@ -44,26 +44,42 @@ def lambda_handler(event, context):
         try:
             cursor.execute("BEGIN")
 
-            # 強制的に遅延させることで後続リクエストに追い越される状況を再現
-            time.sleep(3)  # 3秒スリープ
+            # すでに同じ日付の予約が存在するか確認
+            cursor.execute(
+                "SELECT 1 FROM reservations WHERE DATE(reserved_date) = %s",
+                (date,)
+            )
+            if cursor.fetchone():
+                conn.rollback()
+                return {
+                    "statusCode": 409,
+                    "headers": CORS_HEADERS,
+                    "body": json.dumps({"error": "その日付はすでに予約されています"})
+                }
+
+            time.sleep(3)
 
             cursor.execute(
                 """
                 INSERT INTO reservations (id, name, reserved_date, created_at)
                 VALUES (%s, %s, %s, %s)
-                ON CONFLICT (reserved_date) DO UPDATE
-                SET id = EXCLUDED.id,
-                    name = EXCLUDED.name,
-                    created_at = EXCLUDED.created_at
                 """,
                 (reservation_id, name, date, created_at)
             )
+
+            if cursor.rowcount == 0:
+                conn.rollback()
+                return {
+                    "statusCode": 409,
+                    "headers": CORS_HEADERS,
+                    "body": json.dumps({"error": "その日付はすでに予約されています"})
+                }
 
             conn.commit()
             return {
                 "statusCode": 200,
                 "headers": CORS_HEADERS,
-                "body": json.dumps({"message": "予約が完了しました（OCC適用）"})
+                "body": json.dumps({"message": "予約が完了しました"})
             }
 
         except Exception as e:
