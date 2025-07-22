@@ -126,11 +126,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         const result = await res.json();
         Swal.fire("エラー", result.error || "予約に失敗しました", "error");
+        reserveBtn.disabled = false;
         showStep("step4");
       }
     } catch (err) {
       console.error(err);
       Swal.fire("通信エラー", "APIとの通信に失敗しました。", "error");
+      reserveBtn.disabled = false;
     }
   });
 
