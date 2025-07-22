@@ -2,6 +2,7 @@ import json
 import uuid
 from datetime import datetime
 from db import get_connection
+import time
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -24,16 +25,16 @@ def lambda_handler(event, context):
         body = json.loads(event["body"])
         name = body.get("name")
         date = body.get("date")
-        time = body.get("time")
+        time_str = body.get("time")
 
-        if not name or not date or not time:
+        if not name or not date or not time_str:
             return {
                 "statusCode": 400,
                 "headers": CORS_HEADERS,
                 "body": json.dumps({"error": "name, date, time are required"})
             }
 
-        reserved_datetime = f"{date} {time}"
+        reserved_datetime = f"{date} {time_str}"
         reservation_id = str(uuid.uuid4())
         created_at = datetime.utcnow()
 
@@ -42,28 +43,27 @@ def lambda_handler(event, context):
 
         try:
             cursor.execute("BEGIN")
+
+            # 強制的に遅延させることで後続リクエストに追い越される状況を再現
+            time.sleep(3)  # 3秒スリープ
+
             cursor.execute(
                 """
                 INSERT INTO reservations (id, name, reserved_date, created_at)
                 VALUES (%s, %s, %s, %s)
-                ON CONFLICT (reserved_date) DO NOTHING
+                ON CONFLICT (reserved_date) DO UPDATE
+                SET id = EXCLUDED.id,
+                    name = EXCLUDED.name,
+                    created_at = EXCLUDED.created_at
                 """,
                 (reservation_id, name, date, created_at)
             )
-
-            if cursor.rowcount == 0:
-                conn.rollback()
-                return {
-                    "statusCode": 409,
-                    "headers": CORS_HEADERS,
-                    "body": json.dumps({"error": "その日付はすでに予約されています"})
-                }
 
             conn.commit()
             return {
                 "statusCode": 200,
                 "headers": CORS_HEADERS,
-                "body": json.dumps({"message": "予約が完了しました"})
+                "body": json.dumps({"message": "予約が完了しました（OCC適用）"})
             }
 
         except Exception as e:
