@@ -100,7 +100,12 @@ Value               https://xxx.execute-api.ap-northeast-1.amazonaws.com/Prod/re
 
 ```
 
-### 3. DB用初期テーブルの作成
+### 3. DSQLクラスターの作成
+
+- 2027/07/23現在、AWS SAMがDSQLに未対応のため、手動でデプロイして下さい
+- SAM CLI, version 1.142.1
+
+### 4. DB用初期テーブルの作成
 
 ```bash
 psql --username admin --host DSQLパブリックエンドポイント --dbname postgres -f setup/create_table.sql
@@ -111,7 +116,7 @@ psql --username admin --host DSQLパブリックエンドポイント --dbname p
 
 ---
 
-### 4. フロントエンド公開
+### 5. フロントエンド公開
 
 ```bash
 bash setup/upload_contents.sh
@@ -125,11 +130,11 @@ bash setup/upload_contents.sh
 2. フォームから予約
 3. 「予約されました」が表示され、下部の履歴が更新される
 
-## 制限
+## 仕様
 
 - 予約日が同じ場合、登録が拒否されます
+- 名前1文字につき1秒がトランザクション処理時に加算されます
 
 ## 注意
 
-- 予約リストAPI(reservations)は公開されいて直接API URLにアクセスすると予約一覧が表示されます
-- 通常は予約処理完了後、CloudFront Functionsにより、一覧を取得し表示する処理です
+- 予約リストAPI(reservations)は公開されるため直接API URLにアクセスすると予約一覧が表示されます
