@@ -8,7 +8,6 @@
 graph TD
   User["User"]
   CF["CloudFront Distribution"]
-  CF-Functions["CloudFront Functions"]
   S3["S3 (UiBucket)<br>index.html<BR>script.js"]
   API["API Gateway<br>(REST API)"]
   LambdaList["Lambda: ListReservationsFunction"]
@@ -18,7 +17,6 @@ graph TD
 
   User --> CF
   CF --> S3
-  CF --> CF-Functions
   S3 --> API
 
   API -->|GET /reservations| LambdaList
