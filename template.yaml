@@ -77,9 +77,6 @@ Resources:
           CachePolicyId: 413bf010-3a4f-4a8f-bb99-99646eecaa44 # CachingDisabled
           OriginRequestPolicyId: 088c34b7-9b84-4bcb-b06f-1f6f1397c59b # CORS-S3Origin
           ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # SimpleCORS
-          FunctionAssociations:
-            - EventType: viewer-response
-              FunctionARN: !GetAtt CloudFrontPreflightFunction.FunctionARN
   UiBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -177,26 +174,6 @@ Resources:
             Path: /reservations
             Method: options
             RestApiId: !Ref MyApi
-  CloudFrontPreflightFunction:
-    Type: AWS::CloudFront::Function
-    Properties:
-      Name: !Sub "${AWS::StackName}-AddCORSHeaders"
-      AutoPublish: true
-      FunctionCode: |
-        function handler(event) {
-          const response = event.response;
-          const headers = response.headers;
-
-          headers['access-control-allow-origin'] = { value: '*' };
-          headers['access-control-allow-methods'] = { value: 'GET, POST, OPTIONS' };
-          headers['access-control-allow-headers'] = { value: '*' };
-          headers['access-control-max-age'] = { value: '86400' };
-
-          return response;
-        }
-      FunctionConfig:
-        Comment: "Add CORS headers in viewer-response phase (CloudFront JS 2.0)"
-        Runtime: cloudfront-js-2.0
 
   PythonLayer:
     Type: AWS::Serverless::LayerVersion
