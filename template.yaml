@@ -16,6 +16,51 @@ Globals:
       - !Ref PythonLayer
 
 Resources:
+  ReserveFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-ReserveFunction"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AllowDSQLTokenGeneration
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dsql:GenerateDbConnectAdminAuthToken
+                Resource: "*"
+  ListReservationsFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-ListReservationsFunction"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AllowDSQLTokenGeneration
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dsql:GenerateDbConnectAdminAuthToken
+                Resource: "*"
+
   AuroraDSQLCluster:
   Type: AWS::DSQL::Cluster
   Properties:
@@ -33,15 +78,22 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-  UiOAC:
-    Type: AWS::CloudFront::OriginAccessControl
+  UiBucketPolicy:
+    Type: AWS::S3::BucketPolicy
     Properties:
-      OriginAccessControlConfig:
-        Name: !Sub "${AWS::StackName}-UiOAC"
-        Description: OAC for UI S3 bucket
-        OriginAccessControlOriginType: s3
-        SigningBehavior: always
-        SigningProtocol: sigv4
+      Bucket: !Ref UiBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipalRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${UiBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${UiCloudFrontDistribution}"
 
   UiCloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
@@ -62,6 +114,11 @@ Resources:
             DomainName: !Sub "${UiBucket}.s3.${AWS::Region}.amazonaws.com"
             S3OriginConfig: {} # 必須プレースホルダ（OAC使用時でも必要）
             OriginAccessControlId: !Ref UiOAC
+          - Id: ApiOrigin
+            DomainName: !Sub "${MyApi}.execute-api.${AWS::Region}.amazonaws.com"
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+            OriginPath: /Prod
         DefaultCacheBehavior:
           TargetOriginId: UiS3Origin
           ViewerProtocolPolicy: redirect-to-https
@@ -77,22 +134,43 @@ Resources:
           CachePolicyId: 413bf010-3a4f-4a8f-bb99-99646eecaa44 # CachingDisabled
           OriginRequestPolicyId: 088c34b7-9b84-4bcb-b06f-1f6f1397c59b # CORS-S3Origin
           ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # SimpleCORS
-  UiBucketPolicy:
-    Type: AWS::S3::BucketPolicy
+        CacheBehaviors:
+          - PathPattern: /reserve
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - POST
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 413bf010-3a4f-4a8f-bb99-99646eecaa44 # CachingDisabled
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3 # AllViewerExceptHostHeader
+
+          - PathPattern: /reservations
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 413bf010-3a4f-4a8f-bb99-99646eecaa44 # CachingDisabled
+            OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3 # AllViewerExceptHostHeader
+
+  UiOAC:
+    Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      Bucket: !Ref UiBucket
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipalRead
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource: !Sub "${UiBucket.Arn}/*"
-            Condition:
-              StringEquals:
-                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${UiCloudFrontDistribution}"
+      OriginAccessControlConfig:
+        Name: !Sub "${AWS::StackName}-UiOAC"
+        Description: OAC for UI S3 bucket
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
 
   MyApi:
     Type: AWS::Serverless::Api
@@ -121,17 +199,12 @@ Resources:
     Properties:
       Handler: handlers.reserve.lambda_handler
       CodeUri: src/
+      Role: !GetAtt ReserveFunctionRole.Arn
       Environment:
         Variables:
           DB_HOST: !GetAtt AuroraDSQLCluster.Identifier
           DB_NAME: !Ref DBName
           DB_USER: !Ref DBUser
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - dsql:GenerateDbConnectAdminAuthToken
-              Resource: "*"
       Events:
         PostReservation:
           Type: Api
@@ -150,17 +223,12 @@ Resources:
     Properties:
       Handler: handlers.list_reservations.lambda_handler
       CodeUri: src/
+      Role: !GetAtt ListReservationsFunctionRole.Arn
       Environment:
         Variables:
           DB_HOST: !GetAtt AuroraDSQLCluster.Identifier
           DB_NAME: !Ref DBName
           DB_USER: !Ref DBUser
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - dsql:GenerateDbConnectAdminAuthToken
-              Resource: "*"
       Events:
         GetReservations:
           Type: Api
