@@ -76,6 +76,7 @@ sam deploy \
   --resolve-s3 \
   --capabilities CAPABILITY_IAM \
   --parameter-overrides \
+    DBHost="YOUR_DSQL_CLUSTER_PUBLIC_ENDPOINT" \
     DBUser=admin \
     DBName=postgres \
 ```
