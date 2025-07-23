@@ -3,12 +3,17 @@ import uuid
 from datetime import datetime
 from db import get_connection
 import time
+from psycopg2.errors import UniqueViolation
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type,X-Api-Gateway-Secret"
 }
+
+def get_sleep_by_name_length(name: str, scale: float = 1.0, max_sleep: int = 10) -> float:
+    char_len = len(name)
+    return min(char_len * scale, max_sleep)
 
 def lambda_handler(event, context):
     print("headers:", event.get("headers"))
@@ -44,47 +49,53 @@ def lambda_handler(event, context):
         try:
             cursor.execute("BEGIN")
 
-            # すでに同じ日付の予約が存在するか確認
-            cursor.execute(
-                "SELECT 1 FROM reservations WHERE DATE(reserved_date) = %s",
-                (date,)
-            )
-            if cursor.fetchone():
+            sleep_sec = get_sleep_by_name_length(name)
+            print(f"{name=} の文字数による遅延: {sleep_sec:.1f} 秒")
+            time.sleep(sleep_sec)
+
+            try:
+                cursor.execute(
+                    """
+                    INSERT INTO reservations (id, name, reserved_date, created_at)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (reservation_id, name, date, created_at)
+                )
+                conn.commit()
+                return {
+                    "statusCode": 200,
+                    "headers": CORS_HEADERS,
+                    "body": json.dumps({"message": "予約が完了しました"})
+                }
+
+            except UniqueViolation:
                 conn.rollback()
                 return {
                     "statusCode": 409,
                     "headers": CORS_HEADERS,
-                    "body": json.dumps({"error": "その日付はすでに予約されています"})
+                    "body": json.dumps({"error": "その日付はすでに予約されています（予約競合）"})
                 }
-
-            time.sleep(3)
-
-            cursor.execute(
-                """
-                INSERT INTO reservations (id, name, reserved_date, created_at)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (reservation_id, name, date, created_at)
-            )
-
-            if cursor.rowcount == 0:
+            except Exception as e:
                 conn.rollback()
+                if 'duplicate key' in str(e).lower():
+                    return {
+                        "statusCode": 409,
+                        "headers": CORS_HEADERS,
+                        "body": json.dumps({"error": "その日付はすでに予約されています（競合）"})
+                    }
                 return {
-                    "statusCode": 409,
+                    "statusCode": 500,
                     "headers": CORS_HEADERS,
-                    "body": json.dumps({"error": "その日付はすでに予約されています"})
+                    "body": json.dumps({"error": str(e)})
                 }
-
-            conn.commit()
-            return {
-                "statusCode": 200,
-                "headers": CORS_HEADERS,
-                "body": json.dumps({"message": "予約が完了しました"})
-            }
 
         except Exception as e:
             conn.rollback()
-            raise e
+            return {
+                "statusCode": 500,
+                "headers": CORS_HEADERS,
+                "body": json.dumps({"error": str(e)})
+            }
 
     except Exception as e:
         return {
