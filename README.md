@@ -18,6 +18,7 @@ graph TD
   User --> CF
   CF --> S3
   S3 --> API
+  CF --> API
 
   API -->|GET /reservations| LambdaList
   API -->|POST /reserve| LambdaReserve
