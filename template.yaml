@@ -38,7 +38,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - dsql:GenerateDbConnectAdminAuthToken
+                  - dsql:DbConnectAdmin
                 Resource: "*"
   ListReservationsFunctionRole:
     Type: AWS::IAM::Role
@@ -60,7 +60,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - dsql:GenerateDbConnectAdminAuthToken
+                  - dsql:DbConnectAdmin
                 Resource: "*"
 
   #AuroraDSQLCluster:
