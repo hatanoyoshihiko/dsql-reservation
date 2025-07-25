@@ -11,10 +11,10 @@ CONTENTS_FILE="${FRONT_DIR}/index.html ${FRONT_DIR}/script.js ${CONFIG_JSON}"
 # === CloudFormation から出力値を取得 ===
 echo "Retrieving outputs from CloudFormation stack: $STACK_NAME"
 
-API_BASE=$(aws cloudformation describe-stacks \
+CLOUDFRONT_DOMAIN=$(aws cloudformation describe-stacks \
   --region "$REGION" \
   --stack-name "$STACK_NAME" \
-  --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+  --query "Stacks[0].Outputs[?OutputKey=='UiCloudFrontDomain'].OutputValue" \
   --output text)
 
 S3_BUCKET=$(aws cloudformation describe-stacks \
@@ -24,11 +24,12 @@ S3_BUCKET=$(aws cloudformation describe-stacks \
   --output text)
 
 # === config.json を frontend/ 配下に生成 ===
+API_BASE="https://${CLOUDFRONT_DOMAIN}"
 echo "Generating $CONFIG_JSON with API_BASE=$API_BASE"
 mkdir -p "$FRONT_DIR"
 cat > "$CONFIG_JSON" <<EOF
 {
-  "API_BASE": "${API_BASE%/}"
+  "API_BASE": "${CLOUDFRONT_DOMAIN%/}"
 }
 EOF
 
@@ -42,4 +43,3 @@ for FILE in $CONTENTS_FILE; do
   echo "☁️ Uploading $BASENAME to s3://${S3_BUCKET}/"
   aws s3 cp "$FILE" "s3://${S3_BUCKET}/${BASENAME}" --region "$REGION"
 done
-
