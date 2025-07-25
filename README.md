@@ -65,20 +65,18 @@ dsql-reservation/
 ### 2. デプロイ
 
 ```bash
+aws s3 mb s3://aws-sam-cli-managed-default-YOUR_AWS_ACCOUNT
 cd dsql-reservation
 sam validate
 sam build
-```
-
-```bash
 sam deploy \
   --stack-name dsql-reservation-system \
-  --resolve-s3 \
-  --capabilities CAPABILITY_IAM \
+  --s3-bucket aws-sam-cli-managed-default-YOUR_AWS_ACCOUNT \
+  --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     DBHost="YOUR_DSQL_CLUSTER_PUBLIC_ENDPOINT" \
     DBUser=admin \
-    DBName=postgres \
+    DBName=postgres
 ```
 
 ```
