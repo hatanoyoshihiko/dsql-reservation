@@ -126,15 +126,15 @@ Resources:
           ViewerProtocolPolicy: redirect-to-https
           Compress: true
           AllowedMethods:
-            - GET
             - HEAD
+            - GET
             - OPTIONS
           CachedMethods:
             - GET
             - HEAD
             - OPTIONS
-          CachePolicyId: 413bf010-3a4f-4a8f-bb99-99646eecaa44 # CachingDisabled
-          OriginRequestPolicyId: 088c34b7-9b84-4bcb-b06f-1f6f1397c59b # CORS-S3Origin
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
           ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # SimpleCORS
         CacheBehaviors:
           - PathPattern: /reserve
@@ -144,11 +144,14 @@ Resources:
               - GET
               - HEAD
               - OPTIONS
+              - PUT
               - POST
+              - PATCH
+              - DELETE
             CachedMethods:
               - GET
               - HEAD
-            CachePolicyId: 413bf010-3a4f-4a8f-bb99-99646eecaa44 # CachingDisabled
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled
             OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3 # AllViewerExceptHostHeader
 
           - PathPattern: /reservations
@@ -161,7 +164,7 @@ Resources:
             CachedMethods:
               - GET
               - HEAD
-            CachePolicyId: 413bf010-3a4f-4a8f-bb99-99646eecaa44 # CachingDisabled
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled
             OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3 # AllViewerExceptHostHeader
 
   UiOAC:
