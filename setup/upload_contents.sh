@@ -4,7 +4,9 @@ set -euo pipefail
 # === パラメータ ===
 STACK_NAME="dsql-reservation-system"
 REGION="ap-northeast-1"
-CONFIG_JSON="config.json"
+FRONT_DIR="frontend"
+CONFIG_JSON="${FRONT_DIR}/config.json"
+CONTENTS_FILE="${FRONT_DIR}/index.html ${FRONT_DIR}/script.js ${CONFIG_JSON}"
 
 # === CloudFormation から出力値を取得 ===
 echo "Retrieving outputs from CloudFormation stack: $STACK_NAME"
@@ -21,8 +23,9 @@ S3_BUCKET=$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs[?OutputKey=='UiBucket'].OutputValue" \
   --output text)
 
-# === config.json を生成 ===
+# === config.json を frontend/ 配下に生成 ===
 echo "Generating $CONFIG_JSON with API_BASE=$API_BASE"
+mkdir -p "$FRONT_DIR"
 cat > "$CONFIG_JSON" <<EOF
 {
   "API_BASE": "${API_BASE%/}"
@@ -30,6 +33,13 @@ cat > "$CONFIG_JSON" <<EOF
 EOF
 
 # === S3にアップロード ===
-echo "☁️ Uploading $CONFIG_JSON to s3://${S3_BUCKET}/config.json"
-aws s3 cp "$CONFIG_JSON" "s3://${S3_BUCKET}/config.json" --region "$REGION"
+for FILE in $CONTENTS_FILE; do
+  if [[ ! -f "$FILE" ]]; then
+    echo " File not found: $FILE"
+    exit 1
+  fi
+  BASENAME=$(basename "$FILE")
+  echo "☁️ Uploading $BASENAME to s3://${S3_BUCKET}/"
+  aws s3 cp "$FILE" "s3://${S3_BUCKET}/${BASENAME}" --region "$REGION"
+done
 

@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: Web宿泊予約システム (Aurora DSQL + psycopg2-binary)
+Description: Web hotel reservation system  (Aurora DSQL + psycopg2-binary)
 
 Parameters:
   DBHost:
